@@ -2,58 +2,61 @@ package main
 
 import (
 	"fmt"
+	"gin-hello-world/po"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-var UserPersistence map[uint64]User
+// config
+const (
+	DbName = "test.db"
+)
 
 func main() {
 	router := gin.Default()
-	handler := Handler{}
-	UserPersistence = map[uint64]User{
-		1: {ID: 1, UserName: "hello world"},
-	}
+	postPersistenceSvc := po.NewPostPersistenceService(DbName)
+	handler := Handler{postPersistenceSvc}
 
-	router.GET("/user/get/:id", handler.GetUser)
-	router.POST("/user/create", handler.CreateUser)
+	// TODO: add auth middleware
+	router.GET("/post/get", handler.GetPosts)
+	router.POST("/post/create", handler.CreatePost)
 	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
 type Handler struct {
+	postPo po.PostPersistenceService
 }
 
-type User struct {
-	ID       uint64 `json:"id"`
-	UserName string `json:"username"`
+type GetPostsReq struct {
+	PostIDs *[]uint64 `form:"post_ids, omitempty"`
 }
 
-type GetUserReq struct {
-	ID uint64 `uri:"id" binding:"required"`
-}
-
-func (h Handler) GetUser(c *gin.Context) {
-	req := GetUserReq{}
-	if err := c.BindUri(&req); err != nil {
+func (h Handler) GetPosts(c *gin.Context) {
+	req := GetPostsReq{}
+	if err := c.Bind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
 	}
 	fmt.Printf("Request: %v", req)
-	user, ok := UserPersistence[req.ID]
-	if !ok {
-		c.JSON(http.StatusBadRequest, "user not found")
+	posts, err := h.postPo.Find(po.FindPostFilter{PostIDs: req.PostIDs})
+	if err != nil || len(*posts) == 0 {
+		c.JSON(http.StatusBadRequest, "post not found")
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, *posts)
 }
 
-func (h Handler) CreateUser(c *gin.Context) {
-	newUser := User{}
-	if err := c.BindJSON(&newUser); err != nil {
+func (h Handler) CreatePost(c *gin.Context) {
+	newPost := po.Post{}
+	if err := c.BindJSON(&newPost); err != nil {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
 	}
-	UserPersistence[newUser.ID] = newUser
-	c.JSON(http.StatusCreated, newUser)
+	post, err := h.postPo.Create(&newPost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "internal server error")
+		return
+	}
+	c.JSON(http.StatusCreated, post)
 }
