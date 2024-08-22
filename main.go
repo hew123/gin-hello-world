@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"gin-hello-world/po"
+	"gin-hello-world/vo"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,17 +17,17 @@ const (
 
 func main() {
 	router := gin.Default()
-	postPersistenceSvc := po.NewPostPersistenceService(DbName)
-	handler := Handler{postPersistenceSvc}
+	postService := vo.NewPostService(DbName, time.Minute)
+	handler := Handler{postService}
 
 	// TODO: add auth middleware
 	router.GET("/post/get", handler.GetPosts)
 	router.POST("/post/create", handler.CreatePost)
-	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	router.Run()
 }
 
 type Handler struct {
-	postPo po.PostPersistenceService
+	PostService vo.PostService
 }
 
 type GetPostsReq struct {
@@ -39,12 +41,12 @@ func (h Handler) GetPosts(c *gin.Context) {
 		return
 	}
 	fmt.Printf("Request: %v", req)
-	posts, err := h.postPo.Find(po.FindPostFilter{PostIDs: req.PostIDs})
-	if err != nil || len(*posts) == 0 {
+	posts, err := h.PostService.Find(po.FindPostFilter{PostIDs: req.PostIDs})
+	if err != nil || len(posts) == 0 {
 		c.JSON(http.StatusBadRequest, "post not found")
 		return
 	}
-	c.JSON(http.StatusOK, *posts)
+	c.JSON(http.StatusOK, posts)
 }
 
 func (h Handler) CreatePost(c *gin.Context) {
@@ -53,10 +55,11 @@ func (h Handler) CreatePost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
 	}
-	post, err := h.postPo.Create(&newPost)
+	res := make(chan *po.Post)
+	err := h.PostService.Create(&newPost, res)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "internal server error")
 		return
 	}
-	c.JSON(http.StatusCreated, post)
+	c.JSON(http.StatusCreated, <-res)
 }

@@ -36,8 +36,21 @@ func (s PostPersistenceService) Create(post *Post) (*Post, error) {
 	return post, nil
 }
 
-func (s PostPersistenceService) Find(filter FindPostFilter) (*[]Post, error) {
-	posts := []Post{}
+func (s PostPersistenceService) BulkCreate(posts []*Post) ([]*Post, error) {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	res := tx.Create(posts)
+	if res.Error != nil {
+		tx.Rollback()
+		return nil, res.Error
+	}
+	return posts, tx.Commit().Error
+}
+
+func (s PostPersistenceService) Find(filter FindPostFilter) ([]*Post, error) {
+	posts := []*Post{}
 	db := s.db
 	if filter.PostIDs != nil {
 		db = db.Where("id IN ?", *filter.PostIDs)
@@ -46,5 +59,5 @@ func (s PostPersistenceService) Find(filter FindPostFilter) (*[]Post, error) {
 	if res.Error != nil {
 		return nil, res.Error
 	}
-	return &posts, nil
+	return posts, nil
 }
