@@ -39,12 +39,12 @@ func (s PostPersistenceService) Create(post *Post) (*Post, error) {
 func (s PostPersistenceService) BulkCreate(posts []*Post) ([]*Post, error) {
 	tx := s.db.Begin()
 	if tx.Error != nil {
-		return nil, tx.Error
+		return posts, tx.Error
 	}
 	res := tx.Create(posts)
 	if res.Error != nil {
 		tx.Rollback()
-		return nil, res.Error
+		return posts, res.Error
 	}
 	return posts, tx.Commit().Error
 }

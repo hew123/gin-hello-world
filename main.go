@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"gin-hello-world/po"
 	"gin-hello-world/vo"
 	"net/http"
@@ -12,12 +11,13 @@ import (
 
 // config
 const (
-	DbName = "test.db"
+	DbName             = "test.db"
+	PostCreateInterval = time.Second * 10
 )
 
 func main() {
 	router := gin.Default()
-	postService := vo.NewPostService(DbName, time.Minute)
+	postService := vo.NewPostService(DbName, PostCreateInterval)
 	handler := Handler{postService}
 
 	// TODO: add auth middleware
@@ -40,7 +40,6 @@ func (h Handler) GetPosts(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
 	}
-	fmt.Printf("Request: %v", req)
 	posts, err := h.PostService.Find(po.FindPostFilter{PostIDs: req.PostIDs})
 	if err != nil || len(posts) == 0 {
 		c.JSON(http.StatusBadRequest, "post not found")
@@ -55,11 +54,12 @@ func (h Handler) CreatePost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
 	}
-	res := make(chan *po.Post)
-	err := h.PostService.Create(&newPost, res)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "internal server error")
+	res := make(chan vo.PostResp)
+	h.PostService.Create(&newPost, res)
+	createResp := <-res
+	if createResp.Error != nil {
+		c.JSON(http.StatusInternalServerError, createResp.Error)
 		return
 	}
-	c.JSON(http.StatusCreated, <-res)
+	c.JSON(http.StatusCreated, createResp.Post)
 }
