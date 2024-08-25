@@ -36,6 +36,8 @@ func main() {
 	// TODO: add auth middleware
 	router.GET("/post/get", handler.GetPosts)
 	router.POST("/post/create", handler.CreatePost)
+	router.POST("/comment/create", handler.CreateComment)
+
 	router.Run()
 }
 
@@ -79,4 +81,20 @@ func (h Handler) CreatePost(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, createResp.Post)
+}
+
+func (h Handler) CreateComment(c *gin.Context) {
+	newComment := po.Comment{}
+	if err := c.BindJSON(&newComment); err != nil {
+		c.JSON(http.StatusBadRequest, "bad request")
+		return
+	}
+	// TODO: pull out set context to middleware
+	ctx := po.SetDbInContext(c.Request.Context(), db)
+	comment, err := h.PostService.CreateComment(ctx, &newComment)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusCreated, comment)
 }

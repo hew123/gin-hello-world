@@ -53,6 +53,10 @@ func (p PostService) Create(ctx context.Context, post *po.Post, res chan PostRes
 	return nil
 }
 
+func (p PostService) CreateComment(ctx context.Context, comment *po.Comment) (*po.Comment, error) {
+	return po.CreateComment(ctx, comment)
+}
+
 func (p PostService) tickerCreate(ctx context.Context) {
 	mutex.Lock()
 	defer mutex.Unlock()

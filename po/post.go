@@ -1,11 +1,14 @@
 package po
 
-import "context"
+import (
+	"context"
+)
 
 type Post struct {
-	ID      uint64 `json:"id"`
+	ID      uint64 `json:"id" gorm:"primaryKey"`
 	Caption string `json:"caption"`
-	//Comments Comment `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	// TODO: check why foreign key constraint not working
+	Comments []Comment `json:"comments" gorm:"foreignKey:PostID;references:ID"`
 }
 
 type FindPostFilter struct {
@@ -46,6 +49,7 @@ func FindPosts(ctx context.Context, filter FindPostFilter) ([]*Post, error) {
 	if err != nil {
 		return nil, err
 	}
+	db = db.Preload("Comments")
 	posts := []*Post{}
 	if filter.PostIDs != nil {
 		db = db.Where("id IN ?", *filter.PostIDs)
