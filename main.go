@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"gin-hello-world/po"
 	"gin-hello-world/vo"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 // config
@@ -15,9 +18,19 @@ const (
 	PostCreateInterval = time.Second * 10
 )
 
+// Global DB instance
+var db *gorm.DB
+
 func main() {
 	router := gin.Default()
-	postService := vo.NewPostService(DbName, PostCreateInterval)
+
+	dbConn, err := gorm.Open(sqlite.Open(DbName), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
+	}
+	db = dbConn
+	ctx := po.SetDbInContext(context.Background(), dbConn)
+	postService := vo.NewPostService(ctx, PostCreateInterval)
 	handler := Handler{postService}
 
 	// TODO: add auth middleware
@@ -40,7 +53,9 @@ func (h Handler) GetPosts(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
 	}
-	posts, err := h.PostService.Find(po.FindPostFilter{PostIDs: req.PostIDs})
+	// TODO: pull out set context to middleware
+	ctx := po.SetDbInContext(c.Request.Context(), db)
+	posts, err := h.PostService.Find(ctx, po.FindPostFilter{PostIDs: req.PostIDs})
 	if err != nil || len(posts) == 0 {
 		c.JSON(http.StatusBadRequest, "post not found")
 		return
@@ -54,8 +69,10 @@ func (h Handler) CreatePost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
 	}
+	// TODO: pull out set context to middleware
+	ctx := po.SetDbInContext(c.Request.Context(), db)
 	res := make(chan vo.PostResp)
-	h.PostService.Create(&newPost, res)
+	h.PostService.Create(ctx, &newPost, res)
 	createResp := <-res
 	if createResp.Error != nil {
 		c.JSON(http.StatusInternalServerError, createResp.Error)

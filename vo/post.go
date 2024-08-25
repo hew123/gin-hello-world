@@ -1,6 +1,7 @@
 package vo
 
 import (
+	"context"
 	"fmt"
 	"gin-hello-world/po"
 	"sync"
@@ -19,13 +20,10 @@ var (
 )
 
 type PostService struct {
-	persistenceService po.PostPersistenceService
 }
 
-func NewPostService(dbName string, tickerDuration time.Duration) PostService {
-	postService := PostService{
-		persistenceService: po.NewPostPersistenceService(dbName),
-	}
+func NewPostService(ctx context.Context, tickerDuration time.Duration) PostService {
+	postService := PostService{}
 
 	go func() {
 		ticker := time.NewTicker(tickerDuration)
@@ -35,7 +33,7 @@ func NewPostService(dbName string, tickerDuration time.Duration) PostService {
 			select {
 			case t := <-ticker.C:
 				fmt.Println("Tick at", t)
-				postService.tickerCreate()
+				postService.tickerCreate(ctx)
 			}
 		}
 	}()
@@ -43,11 +41,11 @@ func NewPostService(dbName string, tickerDuration time.Duration) PostService {
 	return postService
 }
 
-func (p PostService) Find(filter po.FindPostFilter) ([]*po.Post, error) {
-	return p.persistenceService.Find(filter)
+func (p PostService) Find(ctx context.Context, filter po.FindPostFilter) ([]*po.Post, error) {
+	return po.FindPosts(ctx, filter)
 }
 
-func (p PostService) Create(post *po.Post, res chan PostResp) error {
+func (p PostService) Create(ctx context.Context, post *po.Post, res chan PostResp) error {
 	mutex.Lock()
 	postsToCreate = append(postsToCreate, post)
 	responses = append(responses, res)
@@ -55,12 +53,15 @@ func (p PostService) Create(post *po.Post, res chan PostResp) error {
 	return nil
 }
 
-func (p PostService) tickerCreate() {
+func (p PostService) tickerCreate(ctx context.Context) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	fmt.Println("posts to create: +v", postsToCreate)
-	posts, err := p.persistenceService.BulkCreate(postsToCreate)
+	// TechDebt: this is all or nothing transaction
+	// If there is one bad input, all requests will fail
+	// Need to find a balance between performance and API usability
+	posts, err := po.BulkCreatePosts(ctx, postsToCreate)
 
 	// TODO: check if order is correct
 	for i, post := range posts {
