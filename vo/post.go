@@ -2,6 +2,7 @@ package vo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"gin-hello-world/po"
 	"sync"
@@ -39,6 +40,37 @@ func NewPostService(ctx context.Context, tickerDuration time.Duration) PostServi
 	}()
 
 	return postService
+}
+
+type GetRankedPostsFilter struct {
+	Cursor   string
+	PageSize int
+}
+
+func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]po.Post, error) {
+	rdb, err := po.GetRedisFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	allPosts, err := p.Find(ctx, po.FindPostFilter{})
+	if err != nil {
+		return nil, err
+	}
+	err = rdb.Set(ctx, "key1", allPosts, 0).Err()
+	if err != nil {
+		return nil, err
+	}
+
+	val, err := rdb.Get(ctx, "key").Result()
+	if err != nil {
+		return nil, err
+	}
+	res := []po.Post{}
+	err = json.Unmarshal([]byte(val), &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func (p PostService) Find(ctx context.Context, filter po.FindPostFilter) ([]*po.Post, error) {
