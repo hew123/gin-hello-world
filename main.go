@@ -48,7 +48,7 @@ func main() {
 
 	// TODO: add auth middleware
 	router.GET("/post/get", handler.GetPosts)
-	router.GET("/post/get_ranked_posts", handler.GetPosts)
+	router.GET("/post/get_ranked_posts", handler.GetRankedPosts)
 	router.POST("/post/create", handler.CreatePost)
 	router.POST("/comment/create", handler.CreateComment)
 
@@ -86,9 +86,14 @@ func (h Handler) GetRankedPosts(c *gin.Context) {
 		return
 	}
 	// TODO: pull out set context to middleware
-	ctx := po.SetRedisInContext(c.Request.Context(), redisDb)
-	posts, err := h.PostService.GetRankedPosts(ctx, vo.GetRankedPostsFilter{})
-	if err != nil || len(posts) == 0 {
+	ctx := po.SetDbInContext(c.Request.Context(), db)
+	rdbCtx := po.SetRedisInContext(ctx, redisDb)
+	posts, err := h.PostService.GetRankedPosts(rdbCtx, vo.GetRankedPostsFilter{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+	if len(posts) == 0 {
 		c.JSON(http.StatusBadRequest, "post not found")
 		return
 	}

@@ -18,11 +18,11 @@ func SetDbInContext(c context.Context, db *gorm.DB) context.Context {
 }
 
 func GetDbFromContext(c context.Context) (*gorm.DB, error) {
-	val := c.Value(DbContextKey).(*gorm.DB)
+	val := c.Value(DbContextKey)
 	if val == nil {
 		return nil, errors.New("db context not set")
 	}
-	return val, nil
+	return val.(*gorm.DB), nil
 }
 
 func SetRedisInContext(c context.Context, rdb *redis.Client) context.Context {
@@ -30,9 +30,9 @@ func SetRedisInContext(c context.Context, rdb *redis.Client) context.Context {
 }
 
 func GetRedisFromContext(c context.Context) (*redis.Client, error) {
-	val := c.Value(RedisDbContextKey).(*redis.Client)
+	val := c.Value(RedisDbContextKey)
 	if val == nil {
 		return nil, errors.New("redis context not set")
 	}
-	return val, nil
+	return val.(*redis.Client), nil
 }
