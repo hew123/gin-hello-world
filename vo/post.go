@@ -6,6 +6,8 @@ import (
 	"gin-hello-world/po"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type PostResp struct {
@@ -65,7 +67,7 @@ func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFi
 	// User may not have the latest version. Fetch it for them
 	if filter.Version == 0 {
 		ver, err := po.GetLatestSnapshotVersion(ctx)
-		if err != nil {
+		if err != nil && err != redis.Nil {
 			return nil, err
 		}
 		filter.Version = ver
