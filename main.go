@@ -93,10 +93,6 @@ func (h Handler) GetRankedPosts(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
-	if len(posts) == 0 {
-		c.JSON(http.StatusBadRequest, "post not found")
-		return
-	}
 	c.JSON(http.StatusOK, posts)
 }
 

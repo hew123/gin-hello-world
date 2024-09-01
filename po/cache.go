@@ -65,7 +65,7 @@ func BulkSetRankedPosts(ctx context.Context, version int64, posts []Post) error 
 
 type GetRankedPostsFilter struct {
 	Version int64 `form:"version"`
-	Start   int   `form:"start" binding:"required"`
+	Cursor  int   `form:"cursor"`
 	Count   int   `form:"count" binding:"required"`
 }
 
@@ -76,7 +76,7 @@ func GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]Post, e
 	}
 	valuesWithScore, err := rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
 		Key:     fmt.Sprintf(RankedPostsKey, filter.Version),
-		Start:   filter.Start,
+		Start:   filter.Cursor + 1,
 		Stop:    MaxPageNumber,
 		ByScore: true,
 		//Offset:  10,
