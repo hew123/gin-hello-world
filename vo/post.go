@@ -2,13 +2,10 @@ package vo
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"gin-hello-world/po"
 	"sync"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 type PostResp struct {
@@ -50,48 +47,24 @@ type GetRankedPostsFilter struct {
 }
 
 func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]*po.Post, error) {
-	rdb, err := po.GetRedisFromContext(ctx)
+	posts, err := p.Find(ctx, po.FindPostFilter{})
 	if err != nil {
 		return nil, err
 	}
-	allPosts, err := p.Find(ctx, po.FindPostFilter{})
+	snapShotVer, err := po.IncSnapshotVersion(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, post := range allPosts {
-		jsonStr, err := json.Marshal(post)
-		if err != nil {
-			return nil, err
-		}
-		err = rdb.ZAdd(ctx, "key1", redis.Z{Score: float64(len(post.Comments)), Member: jsonStr}).Err()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	valuesWithScore, err := rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
-		Key:   "key1",
-		Start: 0,
-		Stop:  10,
-		//ByScore: true,
-		//Offset:  10,
-		//Count:   0,
-		Rev: true,
-	}).Result()
-
+	fmt.Println("Latest Post snapshot: ", snapShotVer)
+	err = po.BulkSetRankedPosts(ctx, snapShotVer, posts)
 	if err != nil {
 		return nil, err
 	}
-	res := []*po.Post{}
-	for _, valueWithScore := range valuesWithScore {
-		post := po.Post{}
-		err = json.Unmarshal([]byte(valueWithScore.Member.(string)), &post)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, &post)
-	}
-	return res, nil
+	return po.GetRankedPosts(ctx, po.GetRankedPostsFilter{
+		Version: snapShotVer,
+		Start:   0,
+		Stop:    10,
+	})
 }
 
 func (p PostService) Find(ctx context.Context, filter po.FindPostFilter) ([]*po.Post, error) {
