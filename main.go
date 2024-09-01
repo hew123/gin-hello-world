@@ -126,7 +126,7 @@ func (h Handler) CreateComment(c *gin.Context) {
 	}
 	// TODO: pull out set context to middleware
 	ctx := po.SetDbInContext(c.Request.Context(), db)
-	comment, err := h.PostService.CreateComment(ctx, &newComment)
+	comment, err := h.PostService.CreateComment(ctx, newComment)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, err)
 		return

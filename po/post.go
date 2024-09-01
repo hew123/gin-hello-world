@@ -20,7 +20,7 @@ func Create(ctx context.Context, post Post) (Post, error) {
 	if err != nil {
 		return post, err
 	}
-	res := db.Create(post)
+	res := db.Create(&post)
 	if res.Error != nil {
 		return post, res.Error
 	}
@@ -36,7 +36,7 @@ func BulkCreatePosts(ctx context.Context, posts []Post) ([]Post, error) {
 	if tx.Error != nil {
 		return posts, tx.Error
 	}
-	res := tx.Create(posts)
+	res := tx.Create(&posts)
 	if res.Error != nil {
 		tx.Rollback()
 		return posts, res.Error

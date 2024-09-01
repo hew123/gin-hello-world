@@ -85,7 +85,7 @@ func (p PostService) Create(ctx context.Context, post po.Post, res chan PostResp
 	return nil
 }
 
-func (p PostService) CreateComment(ctx context.Context, comment *po.Comment) (*po.Comment, error) {
+func (p PostService) CreateComment(ctx context.Context, comment po.Comment) (po.Comment, error) {
 	return po.CreateComment(ctx, comment)
 }
 

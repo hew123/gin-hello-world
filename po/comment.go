@@ -10,14 +10,14 @@ type Comment struct {
 	PostID  uint64 `json:"post_id"`
 }
 
-func CreateComment(ctx context.Context, comment *Comment) (*Comment, error) {
+func CreateComment(ctx context.Context, comment Comment) (Comment, error) {
 	db, err := GetDbFromContext(ctx)
 	if err != nil {
-		return nil, err
+		return comment, err
 	}
-	res := db.Create(comment)
+	res := db.Create(&comment)
 	if res.Error != nil {
-		return nil, res.Error
+		return comment, res.Error
 	}
 	return comment, nil
 }
