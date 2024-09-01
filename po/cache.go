@@ -69,32 +69,38 @@ type GetRankedPostsFilter struct {
 	Count   int   `form:"count" binding:"required"`
 }
 
-func GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]Post, error) {
+type PostWithScore struct {
+	Post
+	Score int64 `json:"score"`
+}
+
+func GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]PostWithScore, error) {
 	rdb, err := GetRedisFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	valuesWithScore, err := rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
-		Key:     fmt.Sprintf(RankedPostsKey, filter.Version),
-		Start:   filter.Cursor + 1,
-		Stop:    MaxPageNumber,
-		ByScore: true,
-		//Offset:  10,
-		Count: int64(filter.Count),
-		Rev:   true,
+		Key:   fmt.Sprintf(RankedPostsKey, filter.Version),
+		Start: filter.Cursor,
+		Stop:  filter.Cursor + filter.Count,
+		// ByScore: true,
+		// Offset:  10,
+		// ByLex: true,
+		// Count: int64(filter.Count),
+		Rev: true,
 	}).Result()
 
 	if err != nil {
 		return nil, err
 	}
-	res := []Post{}
+	res := []PostWithScore{}
 	for _, valueWithScore := range valuesWithScore {
 		post := Post{}
 		err = json.Unmarshal([]byte(valueWithScore.Member.(string)), &post)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, post)
+		res = append(res, PostWithScore{Post: post, Score: int64(valueWithScore.Score)})
 	}
 	return res, nil
 }

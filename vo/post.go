@@ -64,10 +64,10 @@ func (p PostService) BulkSetRankedPosts(ctx context.Context) error {
 }
 
 type GetRankedPostsResp struct {
-	Posts   []po.Post `json:"posts"`
-	Version int64     `json:"version"`
-	Cursor  int       `json:"cursor"`
-	Count   int       `json:"count"`
+	Posts   []po.PostWithScore `json:"posts"`
+	Version int64              `json:"version"`
+	Cursor  int                `json:"cursor"`
+	Count   int                `json:"count"`
 }
 
 func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) (*GetRankedPostsResp, error) {
