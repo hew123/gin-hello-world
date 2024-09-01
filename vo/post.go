@@ -34,6 +34,7 @@ func NewPostService(ctx context.Context, tickerDuration time.Duration) PostServi
 			case t := <-ticker.C:
 				fmt.Println("Tick at", t)
 				postService.tickerCreate(ctx)
+				postService.BulkSetRankedPosts(ctx)
 			}
 		}
 	}()
@@ -41,30 +42,35 @@ func NewPostService(ctx context.Context, tickerDuration time.Duration) PostServi
 	return postService
 }
 
-type GetRankedPostsFilter struct {
-	Cursor   string
-	PageSize int
-}
+type GetRankedPostsFilter = po.GetRankedPostsFilter
 
-func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]*po.Post, error) {
+func (p PostService) BulkSetRankedPosts(ctx context.Context) error {
 	posts, err := p.Find(ctx, po.FindPostFilter{})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	snapShotVer, err := po.IncSnapshotVersion(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	fmt.Println("Latest Post snapshot: ", snapShotVer)
 	err = po.BulkSetRankedPosts(ctx, snapShotVer, posts)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return po.GetRankedPosts(ctx, po.GetRankedPostsFilter{
-		Version: snapShotVer,
-		Start:   0,
-		Stop:    10,
-	})
+	return err
+}
+
+func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]*po.Post, error) {
+	// User may not have the latest version. Fetch it for them
+	if filter.Version == 0 {
+		ver, err := po.GetLatestSnapshotVersion(ctx)
+		if err != nil {
+			return nil, err
+		}
+		filter.Version = ver
+	}
+	return po.GetRankedPosts(ctx, filter)
 }
 
 func (p PostService) Find(ctx context.Context, filter po.FindPostFilter) ([]*po.Post, error) {

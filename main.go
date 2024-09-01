@@ -80,7 +80,7 @@ func (h Handler) GetPosts(c *gin.Context) {
 }
 
 func (h Handler) GetRankedPosts(c *gin.Context) {
-	req := GetPostsReq{}
+	req := vo.GetRankedPostsFilter{}
 	if err := c.Bind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
@@ -88,7 +88,7 @@ func (h Handler) GetRankedPosts(c *gin.Context) {
 	// TODO: pull out set context to middleware
 	ctx := po.SetDbInContext(c.Request.Context(), db)
 	rdbCtx := po.SetRedisInContext(ctx, redisDb)
-	posts, err := h.PostService.GetRankedPosts(rdbCtx, vo.GetRankedPostsFilter{})
+	posts, err := h.PostService.GetRankedPosts(rdbCtx, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
