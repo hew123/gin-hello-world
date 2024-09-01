@@ -40,7 +40,7 @@ func GetLatestSnapshotVersion(ctx context.Context) (int64, error) {
 	return i, err
 }
 
-func BulkSetRankedPosts(ctx context.Context, version int64, posts []*Post) error {
+func BulkSetRankedPosts(ctx context.Context, version int64, posts []Post) error {
 	rdb, err := GetRedisFromContext(ctx)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ type GetRankedPostsFilter struct {
 	Count   int   `form:"count" binding:"required"`
 }
 
-func GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]*Post, error) {
+func GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]Post, error) {
 	rdb, err := GetRedisFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -87,14 +87,14 @@ func GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]*Post, 
 	if err != nil {
 		return nil, err
 	}
-	res := []*Post{}
+	res := []Post{}
 	for _, valueWithScore := range valuesWithScore {
 		post := Post{}
 		err = json.Unmarshal([]byte(valueWithScore.Member.(string)), &post)
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, &post)
+		res = append(res, post)
 	}
 	return res, nil
 }

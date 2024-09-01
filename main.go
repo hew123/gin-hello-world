@@ -109,7 +109,7 @@ func (h Handler) CreatePost(c *gin.Context) {
 	// TODO: pull out set context to middleware
 	ctx := po.SetDbInContext(c.Request.Context(), db)
 	res := make(chan vo.PostResp)
-	h.PostService.Create(ctx, &newPost, res)
+	h.PostService.Create(ctx, newPost, res)
 	createResp := <-res
 	if createResp.Error != nil {
 		c.JSON(http.StatusInternalServerError, createResp.Error)

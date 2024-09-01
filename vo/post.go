@@ -9,12 +9,12 @@ import (
 )
 
 type PostResp struct {
-	Post  *po.Post
+	Post  po.Post
 	Error error
 }
 
 var (
-	postsToCreate []*po.Post
+	postsToCreate []po.Post
 	responses     []chan PostResp
 	mutex         sync.Mutex
 )
@@ -61,7 +61,7 @@ func (p PostService) BulkSetRankedPosts(ctx context.Context) error {
 	return err
 }
 
-func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]*po.Post, error) {
+func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]po.Post, error) {
 	// User may not have the latest version. Fetch it for them
 	if filter.Version == 0 {
 		ver, err := po.GetLatestSnapshotVersion(ctx)
@@ -73,11 +73,11 @@ func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFi
 	return po.GetRankedPosts(ctx, filter)
 }
 
-func (p PostService) Find(ctx context.Context, filter po.FindPostFilter) ([]*po.Post, error) {
+func (p PostService) Find(ctx context.Context, filter po.FindPostFilter) ([]po.Post, error) {
 	return po.FindPosts(ctx, filter)
 }
 
-func (p PostService) Create(ctx context.Context, post *po.Post, res chan PostResp) error {
+func (p PostService) Create(ctx context.Context, post po.Post, res chan PostResp) error {
 	mutex.Lock()
 	postsToCreate = append(postsToCreate, post)
 	responses = append(responses, res)

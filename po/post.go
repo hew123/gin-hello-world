@@ -15,19 +15,19 @@ type FindPostFilter struct {
 	PostIDs *[]uint64
 }
 
-func Create(ctx context.Context, post *Post) (*Post, error) {
+func Create(ctx context.Context, post Post) (Post, error) {
 	db, err := GetDbFromContext(ctx)
 	if err != nil {
-		return nil, err
+		return post, err
 	}
 	res := db.Create(post)
 	if res.Error != nil {
-		return nil, res.Error
+		return post, res.Error
 	}
 	return post, nil
 }
 
-func BulkCreatePosts(ctx context.Context, posts []*Post) ([]*Post, error) {
+func BulkCreatePosts(ctx context.Context, posts []Post) ([]Post, error) {
 	db, err := GetDbFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -44,13 +44,13 @@ func BulkCreatePosts(ctx context.Context, posts []*Post) ([]*Post, error) {
 	return posts, tx.Commit().Error
 }
 
-func FindPosts(ctx context.Context, filter FindPostFilter) ([]*Post, error) {
+func FindPosts(ctx context.Context, filter FindPostFilter) ([]Post, error) {
 	db, err := GetDbFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	db = db.Preload("Comments")
-	posts := []*Post{}
+	posts := []Post{}
 	if filter.PostIDs != nil {
 		db = db.Where("id IN ?", *filter.PostIDs)
 	}
