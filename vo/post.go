@@ -7,6 +7,8 @@ import (
 	"gin-hello-world/po"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type PostResp struct {
@@ -47,7 +49,7 @@ type GetRankedPostsFilter struct {
 	PageSize int
 }
 
-func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]po.Post, error) {
+func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]*po.Post, error) {
 	rdb, err := po.GetRedisFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -56,19 +58,38 @@ func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFi
 	if err != nil {
 		return nil, err
 	}
-	err = rdb.Set(ctx, "key1", allPosts, 0).Err()
-	if err != nil {
-		return nil, err
+	for _, post := range allPosts {
+		jsonStr, err := json.Marshal(post)
+		if err != nil {
+			return nil, err
+		}
+		err = rdb.ZAdd(ctx, "key1", redis.Z{Score: float64(len(post.Comments)), Member: jsonStr}).Err()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	val, err := rdb.Get(ctx, "key").Result()
+	valuesWithScore, err := rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
+		Key:   "key1",
+		Start: 0,
+		Stop:  10,
+		//ByScore: true,
+		//Offset:  10,
+		//Count:   0,
+		Rev: true,
+	}).Result()
+
 	if err != nil {
 		return nil, err
 	}
-	res := []po.Post{}
-	err = json.Unmarshal([]byte(val), &res)
-	if err != nil {
-		return nil, err
+	res := []*po.Post{}
+	for _, valueWithScore := range valuesWithScore {
+		post := po.Post{}
+		err = json.Unmarshal([]byte(valueWithScore.Member.(string)), &post)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, &post)
 	}
 	return res, nil
 }
