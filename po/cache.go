@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -14,6 +15,7 @@ const (
 	RankedPostsKey  = "RANKED_POSTS:%v"
 	PostSnapshotVer = "POST_SNAPSHOT_VERSION"
 	MaxPageNumber   = 100
+	TTL             = 10 * time.Minute
 )
 
 func IncSnapshotVersion(ctx context.Context) (int64, error) {
@@ -40,20 +42,42 @@ func GetLatestSnapshotVersion(ctx context.Context) (int64, error) {
 	return i, err
 }
 
-func BulkSetRankedPosts(ctx context.Context, version int64, posts []Post) error {
+func SetTTL(ctx context.Context, version int64) error {
 	rdb, err := GetRedisFromContext(ctx)
 	if err != nil {
 		return err
 	}
-	for _, post := range posts {
+	_, err = rdb.Expire(ctx, fmt.Sprintf(RankedPostsKey, version), TTL).Result()
+	return err
+}
+
+func CopyToNewSnapshot(ctx context.Context, sourceVer int64, targetVer int64) error {
+	rdb, err := GetRedisFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = rdb.Copy(ctx,
+		fmt.Sprintf(RankedPostsKey, sourceVer),
+		fmt.Sprintf(RankedPostsKey, targetVer),
+		0, false).Result()
+	return err
+}
+
+func BulkSetRankedPosts(ctx context.Context, version int64, posts *[]PostWithScore) error {
+	rdb, err := GetRedisFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	for _, post := range *posts {
 		jsonStr, err := json.Marshal(post)
 		if err != nil {
 			return err
 		}
+		// TODO: use pipeline to do batch insert
 		err = rdb.ZAdd(
 			ctx, fmt.Sprintf(RankedPostsKey, version),
 			redis.Z{
-				Score:  float64(len(post.Comments)),
+				Score:  float64(post.Score),
 				Member: jsonStr,
 			}).Err()
 		if err != nil {

@@ -8,6 +8,7 @@ type Comment struct {
 	ID      uint64 `json:"id" gorm:"primaryKey"`
 	Content string `json:"content"`
 	PostID  uint64 `json:"post_id"`
+	// TODO: add created_at to get most recent comments
 }
 
 func CreateComment(ctx context.Context, comment Comment) (Comment, error) {

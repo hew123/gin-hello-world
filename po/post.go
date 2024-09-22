@@ -15,7 +15,7 @@ type FindPostFilter struct {
 	PostIDs *[]uint64
 }
 
-func Create(ctx context.Context, post Post) (Post, error) {
+func CreatePost(ctx context.Context, post Post) (Post, error) {
 	db, err := GetDbFromContext(ctx)
 	if err != nil {
 		return post, err
