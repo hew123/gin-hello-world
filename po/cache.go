@@ -68,23 +68,26 @@ func BulkSetRankedPosts(ctx context.Context, version int64, posts *[]PostWithSco
 	if err != nil {
 		return err
 	}
+	redisVals := []redis.Z{}
+	if posts == nil || len(*posts) == 0 {
+		return nil
+	}
 	for _, post := range *posts {
 		jsonStr, err := json.Marshal(post)
 		if err != nil {
 			return err
 		}
-		// TODO: use pipeline to do batch insert
-		err = rdb.ZAdd(
-			ctx, fmt.Sprintf(RankedPostsKey, version),
-			redis.Z{
-				Score:  float64(post.Score),
-				Member: jsonStr,
-			}).Err()
-		if err != nil {
-			return err
-		}
+		redisVals = append(redisVals, redis.Z{
+			Score:  float64(post.Score),
+			Member: jsonStr,
+		})
 	}
-	return nil
+	// TODO: Replace exising post by ID instead of creating new element
+	// most recent 2 comments change - so cannot rely on post being same json string
+	return rdb.ZAdd(
+		ctx, fmt.Sprintf(RankedPostsKey, version),
+		redisVals...,
+	).Err()
 }
 
 type GetRankedPostsFilter struct {
