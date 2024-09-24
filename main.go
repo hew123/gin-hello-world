@@ -71,7 +71,7 @@ func (h Handler) GetPosts(c *gin.Context) {
 	}
 	// TODO: pull out set context to middleware
 	ctx := po.SetDbInContext(c.Request.Context(), db)
-	posts, err := h.PostService.Find(ctx, po.FindPostFilter{PostIDs: req.PostIDs})
+	posts, err := h.PostService.Find(ctx, vo.FindPostFilter{PostIDs: req.PostIDs})
 	if err != nil || len(posts) == 0 {
 		c.JSON(http.StatusBadRequest, "post not found")
 		return
@@ -97,7 +97,7 @@ func (h Handler) GetRankedPosts(c *gin.Context) {
 }
 
 func (h Handler) CreatePost(c *gin.Context) {
-	newPost := po.Post{}
+	newPost := vo.Post{}
 	if err := c.BindJSON(&newPost); err != nil {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return
@@ -113,7 +113,7 @@ func (h Handler) CreatePost(c *gin.Context) {
 }
 
 func (h Handler) CreateComment(c *gin.Context) {
-	newComment := po.Comment{}
+	newComment := vo.Comment{}
 	if err := c.BindJSON(&newComment); err != nil {
 		c.JSON(http.StatusBadRequest, "bad request")
 		return

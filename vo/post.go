@@ -21,7 +21,7 @@ func NewPostService(ctx context.Context, tickerDuration time.Duration) PostServi
 	postService := PostService{}
 	// TechDebt: this should be pushed to a daemon instance (singleton)
 	// separated from server instance which is to be scaled
-	BulkInitRankedPosts(ctx)
+	postService.BulkInitRankedPosts(ctx)
 
 	go func() {
 		ticker := time.NewTicker(tickerDuration)
@@ -30,7 +30,7 @@ func NewPostService(ctx context.Context, tickerDuration time.Duration) PostServi
 			select {
 			case t := <-ticker.C:
 				fmt.Println("Tick at", t)
-				err := BulkResetRankedPosts(ctx)
+				err := postService.BulkResetRankedPosts(ctx)
 				if err != nil {
 					panic(err)
 				}
@@ -42,6 +42,7 @@ func NewPostService(ctx context.Context, tickerDuration time.Duration) PostServi
 }
 
 type GetRankedPostsFilter = po.GetRankedPostsFilter
+type FindPostFilter = po.FindPostFilter
 
 type GetRankedPostsResp struct {
 	Posts   []po.PostWithScore `json:"posts"`
@@ -72,10 +73,6 @@ func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFi
 	}, nil
 }
 
-func (p PostService) Find(ctx context.Context, filter po.FindPostFilter) ([]po.Post, error) {
+func (p PostService) Find(ctx context.Context, filter FindPostFilter) ([]Post, error) {
 	return po.FindPosts(ctx, filter)
-}
-
-func (p PostService) CreateComment(ctx context.Context, comment po.Comment) (po.Comment, error) {
-	return po.CreateComment(ctx, comment)
 }
