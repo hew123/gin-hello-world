@@ -1,38 +1,29 @@
 package po
 
 import (
-	"context"
-	"errors"
-
+	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-const (
-	DbContextKey      = "database"
-	RedisDbContextKey = "redis"
-)
-
-func SetDbInContext(c context.Context, db *gorm.DB) context.Context {
-	return context.WithValue(c, DbContextKey, db)
-}
-
-func GetDbFromContext(c context.Context) (*gorm.DB, error) {
-	val := c.Value(DbContextKey)
-	if val == nil {
-		return nil, errors.New("db context not set")
+func InitDb(dbName string) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
 	}
-	return val.(*gorm.DB), nil
+	return db
 }
 
-func SetRedisInContext(c context.Context, rdb *redis.Client) context.Context {
-	return context.WithValue(c, RedisDbContextKey, rdb)
-}
-
-func GetRedisFromContext(c context.Context) (*redis.Client, error) {
-	val := c.Value(RedisDbContextKey)
-	if val == nil {
-		return nil, errors.New("redis context not set")
+func InitRedis() *redis.Client {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic("failed to init redis instance")
 	}
-	return val.(*redis.Client), nil
+	redisDb := redis.NewClient(&redis.Options{
+		Addr:     s.Addr(),
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	return redisDb
 }

@@ -2,6 +2,8 @@ package po
 
 import (
 	"context"
+
+	"gorm.io/gorm"
 )
 
 type Post struct {
@@ -11,28 +13,28 @@ type Post struct {
 	Comments []Comment `json:"comments" gorm:"foreignKey:PostID;references:ID"`
 }
 
+type PostPersistenceService struct {
+	db *gorm.DB
+}
+
 type FindPostFilter struct {
 	PostIDs *[]uint64
 }
 
-func CreatePost(ctx context.Context, post Post) (Post, error) {
-	db, err := GetDbFromContext(ctx)
-	if err != nil {
-		return post, err
-	}
-	res := db.Create(&post)
+func NewPostPersistence(db *gorm.DB) PostPersistenceService {
+	return PostPersistenceService{db: db}
+}
+
+func (p PostPersistenceService) CreatePost(ctx context.Context, post Post) (Post, error) {
+	res := p.db.Create(&post)
 	if res.Error != nil {
 		return post, res.Error
 	}
 	return post, nil
 }
 
-func BulkCreatePosts(ctx context.Context, posts []Post) ([]Post, error) {
-	db, err := GetDbFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tx := db.Begin()
+func (p PostPersistenceService) BulkCreatePosts(ctx context.Context, posts []Post) ([]Post, error) {
+	tx := p.db.Begin()
 	if tx.Error != nil {
 		return posts, tx.Error
 	}
@@ -44,12 +46,8 @@ func BulkCreatePosts(ctx context.Context, posts []Post) ([]Post, error) {
 	return posts, tx.Commit().Error
 }
 
-func FindPosts(ctx context.Context, filter FindPostFilter) ([]Post, error) {
-	db, err := GetDbFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	db = db.Preload("Comments")
+func (p PostPersistenceService) FindPosts(ctx context.Context, filter FindPostFilter) ([]Post, error) {
+	db := p.db.Preload("Comments")
 	posts := []Post{}
 	if filter.PostIDs != nil {
 		db = db.Where("id IN ?", *filter.PostIDs)

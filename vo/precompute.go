@@ -21,11 +21,11 @@ var (
 )
 
 func (p PostService) BulkInitRankedPosts(ctx context.Context) error {
-	posts, err := po.FindPosts(ctx, po.FindPostFilter{})
+	posts, err := p.postPo.FindPosts(ctx, po.FindPostFilter{})
 	if err != nil {
 		return err
 	}
-	snapShotVer, err := po.IncSnapshotVersion(ctx)
+	snapShotVer, err := p.cachingPo.IncSnapshotVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -42,33 +42,33 @@ func (p PostService) BulkInitRankedPosts(ctx context.Context) error {
 		})
 	}
 	fmt.Println("Latest Post snapshot: ", snapShotVer)
-	err = po.BulkSetRankedPosts(ctx, snapShotVer, &postsWithScore)
+	err = p.cachingPo.BulkSetRankedPosts(ctx, snapShotVer, &postsWithScore)
 	if err != nil {
 		return err
 	}
-	return po.SetTTL(ctx, snapShotVer)
+	return p.cachingPo.SetTTL(ctx, snapShotVer)
 }
 
 func (p PostService) BulkResetRankedPosts(ctx context.Context) error {
-	currSnapShotVer, err := po.GetLatestSnapshotVersion(ctx)
+	currSnapShotVer, err := p.cachingPo.GetLatestSnapshotVersion(ctx)
 	if err != nil {
 		return err
 	}
-	newSnapShotVer, err := po.IncSnapshotVersion(ctx)
+	newSnapShotVer, err := p.cachingPo.IncSnapshotVersion(ctx)
 	if err != nil {
 		return err
 	}
 	mutex.Lock()
 	defer mutex.Unlock()
 	fmt.Println("Latest Post snapshot: ", newSnapShotVer)
-	err = po.CopyToNewSnapshot(ctx, currSnapShotVer, newSnapShotVer)
+	err = p.cachingPo.CopyToNewSnapshot(ctx, currSnapShotVer, newSnapShotVer)
 	if err != nil {
 		return nil
 	}
 
 	// Fetching recent posts again because their comment counts might have been updated
 
-	posts, err := po.FindPosts(ctx, FindPostFilter{PostIDs: &createdPostIDs})
+	posts, err := p.postPo.FindPosts(ctx, FindPostFilter{PostIDs: &createdPostIDs})
 	fmt.Printf("Recent posts: %+v", createdPostIDs)
 	if err != nil {
 		return err
@@ -85,16 +85,16 @@ func (p PostService) BulkResetRankedPosts(ctx context.Context) error {
 			Score: int64(commentLen),
 		})
 	}
-	err = po.BulkSetRankedPosts(ctx, newSnapShotVer, &postsWithScore)
+	err = p.cachingPo.BulkSetRankedPosts(ctx, newSnapShotVer, &postsWithScore)
 	if err != nil {
 		return err
 	}
 	createdPostIDs = make([]uint64, 0)
-	return po.SetTTL(ctx, newSnapShotVer)
+	return p.cachingPo.SetTTL(ctx, newSnapShotVer)
 }
 
 func (p PostService) CreatePost(ctx context.Context, post Post) (Post, error) {
-	resp, err := po.CreatePost(ctx, post)
+	resp, err := p.postPo.CreatePost(ctx, post)
 	if err != nil {
 		return post, err
 	}
@@ -106,7 +106,7 @@ func (p PostService) CreatePost(ctx context.Context, post Post) (Post, error) {
 }
 
 func (p PostService) CreateComment(ctx context.Context, comment Comment) (Comment, error) {
-	resp, err := po.CreateComment(ctx, comment)
+	resp, err := p.commentPo.CreateComment(ctx, comment)
 	if err != nil {
 		return comment, err
 	}

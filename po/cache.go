@@ -18,20 +18,20 @@ const (
 	TTL             = 10 * time.Minute
 )
 
-func IncSnapshotVersion(ctx context.Context) (int64, error) {
-	rdb, err := GetRedisFromContext(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return rdb.Incr(ctx, PostSnapshotVer).Result()
+type CachingService struct {
+	rdb *redis.Client
 }
 
-func GetLatestSnapshotVersion(ctx context.Context) (int64, error) {
-	rdb, err := GetRedisFromContext(ctx)
-	if err != nil {
-		return 0, err
-	}
-	val, err := rdb.Get(ctx, PostSnapshotVer).Result()
+func NewCachingService(rdb *redis.Client) CachingService {
+	return CachingService{rdb: rdb}
+}
+
+func (c CachingService) IncSnapshotVersion(ctx context.Context) (int64, error) {
+	return c.rdb.Incr(ctx, PostSnapshotVer).Result()
+}
+
+func (c CachingService) GetLatestSnapshotVersion(ctx context.Context) (int64, error) {
+	val, err := c.rdb.Get(ctx, PostSnapshotVer).Result()
 	if err != nil {
 		return 0, err
 	}
@@ -42,32 +42,20 @@ func GetLatestSnapshotVersion(ctx context.Context) (int64, error) {
 	return i, err
 }
 
-func SetTTL(ctx context.Context, version int64) error {
-	rdb, err := GetRedisFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = rdb.Expire(ctx, fmt.Sprintf(RankedPostsKey, version), TTL).Result()
+func (c CachingService) SetTTL(ctx context.Context, version int64) error {
+	_, err := c.rdb.Expire(ctx, fmt.Sprintf(RankedPostsKey, version), TTL).Result()
 	return err
 }
 
-func CopyToNewSnapshot(ctx context.Context, sourceVer int64, targetVer int64) error {
-	rdb, err := GetRedisFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = rdb.Copy(ctx,
+func (c CachingService) CopyToNewSnapshot(ctx context.Context, sourceVer int64, targetVer int64) error {
+	_, err := c.rdb.Copy(ctx,
 		fmt.Sprintf(RankedPostsKey, sourceVer),
 		fmt.Sprintf(RankedPostsKey, targetVer),
 		0, false).Result()
 	return err
 }
 
-func BulkSetRankedPosts(ctx context.Context, version int64, posts *[]PostWithScore) error {
-	rdb, err := GetRedisFromContext(ctx)
-	if err != nil {
-		return err
-	}
+func (c CachingService) BulkSetRankedPosts(ctx context.Context, version int64, posts *[]PostWithScore) error {
 	redisVals := []redis.Z{}
 	if posts == nil || len(*posts) == 0 {
 		return nil
@@ -84,7 +72,7 @@ func BulkSetRankedPosts(ctx context.Context, version int64, posts *[]PostWithSco
 	}
 	// TODO: Replace exising post by ID instead of creating new element
 	// most recent 2 comments change - so cannot rely on post being same json string
-	return rdb.ZAdd(
+	return c.rdb.ZAdd(
 		ctx, fmt.Sprintf(RankedPostsKey, version),
 		redisVals...,
 	).Err()
@@ -101,12 +89,8 @@ type PostWithScore struct {
 	Score int64 `json:"score"`
 }
 
-func GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]PostWithScore, error) {
-	rdb, err := GetRedisFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	valuesWithScore, err := rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
+func (c CachingService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) ([]PostWithScore, error) {
+	valuesWithScore, err := c.rdb.ZRangeArgsWithScores(ctx, redis.ZRangeArgs{
 		Key:   fmt.Sprintf(RankedPostsKey, filter.Version),
 		Start: filter.Cursor,
 		Stop:  filter.Cursor + filter.Count,

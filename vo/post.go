@@ -15,10 +15,23 @@ type PostResp struct {
 }
 
 type PostService struct {
+	postPo    po.PostPersistenceService
+	commentPo po.CommentPersistenceService
+	cachingPo po.CachingService
 }
 
-func NewPostService(ctx context.Context, tickerDuration time.Duration) PostService {
-	postService := PostService{}
+func NewPostService(
+	ctx context.Context,
+	tickerDuration time.Duration,
+	postPo po.PostPersistenceService,
+	commentPo po.CommentPersistenceService,
+	cachingPo po.CachingService,
+) PostService {
+	postService := PostService{
+		postPo:    postPo,
+		commentPo: commentPo,
+		cachingPo: cachingPo,
+	}
 	// TechDebt: this should be pushed to a daemon instance (singleton)
 	// separated from server instance which is to be scaled
 	postService.BulkInitRankedPosts(ctx)
@@ -54,13 +67,13 @@ type GetRankedPostsResp struct {
 func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFilter) (*GetRankedPostsResp, error) {
 	// User may not have the latest version. Fetch it for them
 	if filter.Version == 0 {
-		ver, err := po.GetLatestSnapshotVersion(ctx)
+		ver, err := p.cachingPo.GetLatestSnapshotVersion(ctx)
 		if err != nil && err != redis.Nil {
 			return nil, err
 		}
 		filter.Version = ver
 	}
-	posts, err := po.GetRankedPosts(ctx, filter)
+	posts, err := p.cachingPo.GetRankedPosts(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -74,5 +87,5 @@ func (p PostService) GetRankedPosts(ctx context.Context, filter GetRankedPostsFi
 }
 
 func (p PostService) Find(ctx context.Context, filter FindPostFilter) ([]Post, error) {
-	return po.FindPosts(ctx, filter)
+	return p.postPo.FindPosts(ctx, filter)
 }

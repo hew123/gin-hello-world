@@ -2,6 +2,8 @@ package po
 
 import (
 	"context"
+
+	"gorm.io/gorm"
 )
 
 type Comment struct {
@@ -11,12 +13,16 @@ type Comment struct {
 	// TODO: add created_at to get most recent comments
 }
 
-func CreateComment(ctx context.Context, comment Comment) (Comment, error) {
-	db, err := GetDbFromContext(ctx)
-	if err != nil {
-		return comment, err
-	}
-	res := db.Create(&comment)
+type CommentPersistenceService struct {
+	db *gorm.DB
+}
+
+func NewCommentPersistence(db *gorm.DB) CommentPersistenceService {
+	return CommentPersistenceService{db: db}
+}
+
+func (c CommentPersistenceService) CreateComment(ctx context.Context, comment Comment) (Comment, error) {
+	res := c.db.Create(&comment)
 	if res.Error != nil {
 		return comment, res.Error
 	}
